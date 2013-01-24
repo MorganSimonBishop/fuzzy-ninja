@@ -7,12 +7,107 @@ canvasElement.height = CANVAS_HEIGHT;
 
 var canvas = canvasElement.getContext("2d");
 document.body.appendChild(canvasElement);
+document.body.style.backgroundColor = "black";
 
-var FPS = 30;
+var FPS = 60;
 setInterval(function() {
 	update();
 	draw();
 }, 1000/FPS);
+
+var tree = {
+	dx: 0,
+	dy: 0,
+	xPos: 256,
+	yPos: 200,
+	trunkWidth: 10,
+	trunkHeight: 56,
+	trunkColor: "#926F5B",
+	foliageWidth: 20,
+	foliageHeight: 20,
+	foliageColor: "#228B22",
+	_xPos: function() {
+		this.xPos += this.dx;
+	},
+	_yPos: function() {
+		this.yPos += this.dy;
+	},
+	update: function (){
+		this._xPos(); this._yPos();
+	},
+	drawTrunk: function ()
+	{
+		canvas.fillStyle = this.trunkColor; 
+		canvas.fillRect(this.xPos, this.yPos, this.trunkWidth, this.trunkHeight);
+	},
+	drawFoliage: function ()
+	{
+		var foliageXPos = (this.xPos + this.trunkWidth / 2) - (this.foliageWidth / 2);
+		var foliageYPos = this.yPos - this.foliageHeight;
+		canvas.fillStyle = this.foliageColor;
+		canvas.fillRect(foliageXPos, foliageYPos, this.foliageWidth, this.foliageHeight);
+	},
+		
+	draw: function ()
+	{
+		this.drawTrunk();
+		this.drawFoliage();
+	},
+};
+
+var gun = {
+	dx: 0,
+	dy: 0,
+	xPos: 50,
+	yPos: 250,
+	type: "weapon",
+	name: "pistol",
+	barrelWidth:8,
+	barrelHeight:4,
+	handleHeight:6,
+	handleWidth:2,
+	color: "black",
+	facingDirection: "right",
+	right: function() {
+		return this.xPos + this.barrelWidth;
+	},
+	_xPos: function() {
+		this.xPos += this.dx;
+	},
+	_yPos: function() {
+		this.yPos += this.dy;
+	},
+	update: function (){
+		//console.log("gun dx: " + this.dx);
+		//console.log("gun dy: " + this.dy);
+		this._xPos(); this._yPos();
+	},
+	_drawBarrel: function ()
+	{
+		canvas.fillStyle = this.color;
+		
+		canvas.fillRect(this.xPos, this.yPos, this.barrelWidth, this.barrelHeight);
+	},
+	_drawHandle: function ()
+	{
+		var _x = this.xPos;
+
+		if (this.facingDirection == "left")
+		{
+			_x += this.barrelWidth - this.handleWidth;
+		}
+
+		canvas.fillStyle = this.color;
+
+		canvas.fillRect(_x, this.yPos, this.handleWidth, this.handleHeight);
+	},
+	draw: function()
+	{
+		this._drawHandle();
+		this._drawBarrel();
+	},
+};
+
 
 var player = {
 	dx: 0,
@@ -25,6 +120,7 @@ var player = {
 	height: 32,
 	jumps: 2,
 	color: "#00A",
+	visibleItems: [],
 	bottom: function() {
 		return this.height + this.yPos;
 	},
@@ -57,15 +153,48 @@ var player = {
 			this.jumps = 2;
 		}
 	},
+	pickUp: function(object) {
+		this.visibleItems.push(object);
+		this._updateItems();
+	},
+	_updateItems: function()
+	{
+		var iter, numItems = this.visibleItems.length, object = {};
+		for(iter = 0; iter < numItems; ++iter)
+		{	
+			object = this.visibleItems[iter];
+			if (object.type == "weapon")
+			{
+				if (object.name == "pistol")
+				{
+					if (this.dx > 0)
+					{
+						object.facingDirection = "right";
+						object.xPos = this.xPos + this.width;
+					}
+					else if(this.dx < 0)
+					{
+						object.facingDirection = "left";
+						object.xPos = this.xPos - object.barrelWidth;
+					}
+					object.yPos =
+						this.yPos + this.height / 2 - object.handleHeight;
+				}
+			}
+		}
+	},
 	update: function() {
-		if (this.yPos + this.height < CANVAS_HEIGHT)
+		if (this.bottom() < CANVAS_HEIGHT)
 		{
 			gravitize([this]);
 		}
 		this._xPos();
 		this._yPos();
 		this._normalize();
+		this._updateItems();
 		this._resetJumps();
+		console.log("player dx: " + this.dx);
+		console.log("player dy: " + this.dy);
 	},
 	draw: function() {
 		canvas.fillStyle = this.color;
@@ -102,26 +231,38 @@ document.addEventListener('keyup',function(e){
 			var leftEase = setInterval(function(){
 				if (player.dx < 0)
 				{
-					player.dx += .1
-				}
-				else
-				{
-					clearInterval(leftEase);
+					if (player.dx + .1 > 0)
+					{
+						player.dx = 0;
+						clearInterval(leftEase);
+					}
+					else
+					{
+						player.dx += .1
+					}
 				}
 			}, 20);
 			break;
 		case 83: // key = 's'
-			// pick up item
-			break
+			if ((gun.right() >= player.xPos) &&
+				(gun.xPos <= player.right()))
+			{
+				player.pickUp(gun);
+			}
+			break;
 		case 68: // key = 'd'
 			var rightEase = setInterval(function(){
 				if (player.dx > 0)
 				{
-					player.dx -= .1
-				}
-				else
-				{
-					clearInterval(rightEase);
+					if (player.dx - .1 < 0)
+					{
+						player.dx = 0;
+						clearInterval(rightEase);
+					}
+					else
+					{
+						player.dx -= .1
+					}
 				}
 			}, 20);
 			break
@@ -149,6 +290,8 @@ function gravitize(objects)
 }
 
 function update(){
+	tree.update();
+	gun.update();
 	player.update();
 	contain(player);
 }
@@ -166,8 +309,11 @@ function contain(object)
 }
 
 function draw(){
-	canvas.clearRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT);
+	canvas.fillStyle="#FFFFFF";
+	canvas.fillRect(0,0,CANVAS_WIDTH, CANVAS_HEIGHT);
+	tree.draw();
 	player.draw();
+	gun.draw();
 }
 
 
