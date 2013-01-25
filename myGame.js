@@ -10,11 +10,8 @@ document.body.appendChild(canvasElement);
 document.body.style.backgroundColor = "black";
 
 var FPS = 60;
-setInterval(function() {
-	update();
-	draw();
-}, 1000/FPS);
 
+// OBJECTS
 var tree = {
 	dx: 0,
 	dy: 0,
@@ -78,14 +75,11 @@ var gun = {
 		this.yPos += this.dy;
 	},
 	update: function (){
-		//console.log("gun dx: " + this.dx);
-		//console.log("gun dy: " + this.dy);
 		this._xPos(); this._yPos();
 	},
 	_drawBarrel: function ()
 	{
 		canvas.fillStyle = this.color;
-		
 		canvas.fillRect(this.xPos, this.yPos, this.barrelWidth, this.barrelHeight);
 	},
 	_drawHandle: function ()
@@ -98,7 +92,6 @@ var gun = {
 		}
 
 		canvas.fillStyle = this.color;
-
 		canvas.fillRect(_x, this.yPos, this.handleWidth, this.handleHeight);
 	},
 	draw: function()
@@ -193,14 +186,35 @@ var player = {
 		this._normalize();
 		this._updateItems();
 		this._resetJumps();
-		console.log("player dx: " + this.dx);
-		console.log("player dy: " + this.dy);
 	},
 	draw: function() {
 		canvas.fillStyle = this.color;
 		canvas.fillRect(this.xPos, this.yPos, this.width, this.height);
 	},
 };
+
+
+window.requestAnimFrame = (
+	function ()
+	{
+		return window.requestAnimationFrame       ||
+			   window.webkitRequestAnimationFrame ||
+			   window.mozRequestAnimationFrame    ||
+			   window.oRequestAnimationFrame      ||
+			   window.msRequestAnimationFrame     ||
+			   function (callback)
+			   {
+			       window.setTimeout(callback, 1000 / FPS);
+			   };
+	}
+)();
+
+(function animloop() 
+{
+	requestAnimFrame(animloop);
+	update();
+	draw();
+})();
 
 document.addEventListener('keydown',function(e){
 	switch(e.keyCode)
@@ -247,6 +261,7 @@ document.addEventListener('keyup',function(e){
 			if ((gun.right() >= player.xPos) &&
 				(gun.xPos <= player.right()))
 			{
+				//check yPos too
 				player.pickUp(gun);
 			}
 			break;
@@ -289,7 +304,8 @@ function gravitize(objects)
 		objects[iter].dy += .2;
 }
 
-function update(){
+function update()
+{
 	tree.update();
 	gun.update();
 	player.update();
